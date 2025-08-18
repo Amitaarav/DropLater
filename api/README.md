@@ -49,3 +49,9 @@ A package.json file.
 Development tools (ESLint + Prettier).
 
 Database libraries (MongoDB + Redis)
+
+## Why these indexes?
+
+releaseAt (asc) → Worker can quickly find due notes to enqueue if needed.
+
+status → Admin UI can list/filter notes by state efficiently. 

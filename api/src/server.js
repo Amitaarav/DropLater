@@ -1,4 +1,5 @@
 import express from 'express';
+import dotenv from "dotenv"
 import pino from 'pino';
 import { z } from 'zod';
 import dayjs from 'dayjs';
@@ -7,6 +8,7 @@ import path from 'path';
 import { connectMongo } from './db';
 import Event from './models/event';
 import { createQueue } from './queue';
+dotenv.config();
 
 const PORT = Number(process.env.API_PORT || 3000);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -36,6 +38,7 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
   app.post('/events', async (req, res) => {
     const parse = EventSchema.safeParse(req.body);
+
     if (!parse.success) {
       return res.status(400).json({ error: parse.error.flatten() });
     }
@@ -50,6 +53,7 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
     logger.info({ id: doc._id, type }, 'Event stored and enqueued');
     res.status(202).json({ id: doc._id, status: 'queued' });
+
   });
 
   app.listen(PORT, () => {
