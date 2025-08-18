@@ -4,7 +4,7 @@ import { createQueue } from "."
 const queue = createQueue();
 
 // POST /api/notes
-async function createNote(req, res, next) {
+export async function createNote(req, res, next) {
   try {
     const { title, body, releaseAt, webhookUrl } = req.validated; // set by validation middleware
     const note = await Note.create({ title, body, releaseAt, webhookUrl });
@@ -20,7 +20,7 @@ async function createNote(req, res, next) {
 }
 
 // GET /api/notes?status=&page=
-async function listNotes(req, res, next) {
+export async function listNotes(req, res, next) {
   try {
     const { status, page = 1 } = req.query;
     const filter = status ? { status } : {};
@@ -35,7 +35,7 @@ async function listNotes(req, res, next) {
 }
 
 // POST /api/notes/:id/replay
-async function replayNote(req, res, next) {
+export async function replayNote(req, res, next) {
   try {
     const note = await Note.findById(req.params.id);
     if (!note) return res.status(404).json({ error: 'Note not found' });
@@ -55,4 +55,3 @@ async function replayNote(req, res, next) {
   }
 }
 
-module.exports = { createNote, listNotes, replayNote };

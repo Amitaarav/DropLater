@@ -1,3 +1,24 @@
+#API Service
+
+This folder contains the API service for the project.
+It provides REST endpoints for clients and communicates with other services (worker, sink, and admin) via queues and databases.
+
+## Tech Stack
+
+Node.js with Express
+
+MongoDB (for persistence)
+
+Redis (for caching & queues)
+
+BullMQ (for job queues)
+
+Zod (for validation)
+
+Pino (for logging)
+
+Docker (for containerization)
+
 ### Project Setup Guide
 1. Initialize the Project
 
@@ -6,52 +27,155 @@ The first step is to create a new Node.js project with a default package.json fi
 npm init -y
 ```
 
-npm init initializes a new Node.js project.
+npm init → initializes a new Node.js project.
 
-The -y flag automatically accepts all default options (so you don’t need to answer prompts).
+-y → automatically accepts all default options (so you don’t need to answer prompts).
 
 This generates a package.json file where all dependencies and scripts will be managed.
 
 2. Install Development Dependencies (Linting & Formatting)
 
-Next, install tools to maintain clean, consistent, and error-free code.
+Install tools to maintain clean, consistent, and error-free code.
 ```
 npm install --save-dev eslint eslint-config-prettier prettier
-
-```
---save-dev → Marks these as development dependencies (they won’t be bundled in production).
-
-eslint → A linter that helps find and fix coding errors.
-
-prettier → A code formatter that ensures consistent code style.
-
-eslint-config-prettier → Disables ESLint rules that might conflict with Prettier, so both tools work smoothly together.
-
-This setup ensures that your codebase stays readable and standardized.
-
-3. Install Core Dependencies (Databases)
-
-Now install the libraries required for database support.
-```
-npm install --save mongodb redis
 ```
 
---save (default in newer npm versions) → Marks these as production dependencies.
+--save-dev → Marks these as development dependencies (not bundled in production).
 
-mongodb → Official MongoDB driver for Node.js, used to interact with MongoDB databases.
+eslint → Linter to find and fix coding errors.
 
-redis → Official Redis client for Node.js, used for caching, session management, and fast data retrieval.
+prettier → Code formatter for consistent style.
 
-## After these steps, your project is initialized with:
+eslint-config-prettier → Disables ESLint rules that conflict with Prettier.
 
-A package.json file.
+## This setup ensures that your codebase stays readable and standardized.
 
-Development tools (ESLint + Prettier).
+3. Install Core Dependencies
 
-Database libraries (MongoDB + Redis)
+Install libraries required for databases and API functionality.
+```
+npm install --save mongodb redis mongoose bullmq cors dayjs dotenv pino zod express-rate-limit
+```
 
-## Why these indexes?
+mongodb → Official MongoDB driver.
 
-releaseAt (asc) → Worker can quickly find due notes to enqueue if needed.
+mongoose → ODM for MongoDB.
 
-status → Admin UI can list/filter notes by state efficiently. 
+redis → Redis client for Node.js.
+
+bullmq → Queue management library.
+
+cors → Middleware for cross-origin requests.
+
+dayjs → Date handling.
+
+dotenv → Loads environment variables.
+
+pino → Fast JSON logger.
+
+zod → Input validation.
+
+express-rate-limit → Rate limiting middleware.
+
+# After these steps, your project has:
+
+- A package.json file
+
+- Development tools (ESLint + Prettier)
+
+- Database & queue libraries (MongoDB, Redis, BullMQ)
+
+- Logging, validation, and rate-limiting tools
+
+### Environment Variables
+
+Create a .env file inside the api/ folder. Example:
+```
+# Runtime
+NODE_ENV=development
+
+# API
+API_PORT=3000
+
+# Database
+MONGO_URL=mongodb://mongo:27017/app
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+# REDIS_PASSWORD=   # optional
+
+# Queue
+QUEUE_EVENTS=events
+```
+
+See root README.md for shared environment variables across services.
+
+\### Indexing Strategy (Database)
+
+releaseAt (ascending) → Worker can quickly find due notes to enqueue.
+
+status → Admin UI can list/filter notes efficiently.
+
+### API Reference
+Public Routes
+```
+GET /health
+``
+Description: Health check for the service.
+
+Access: Public
+
+Response: { "status": "ok" }
+
+Private Routes (require Authentication + Rate Limiting)
+POST /notes
+
+Description: Create a new note.
+
+Access: Private
+
+Body Example:
+```
+{
+  "title": "Meeting Notes",
+  "body": "Discuss project timelines",
+  "releaseAt": "2025-08-18T12:00:00Z",
+  "webhookUrl": "http://example.com/webhook"
+}
+```
+GET /notes
+
+Description: Fetch a list of notes.
+
+Access: Private
+
+Response Example:
+```
+[
+  {
+    "id": "note123",
+    "title": "Meeting Notes",
+    "body": "Discuss project timelines",
+    "releaseAt": "2025-08-18T12:00:00Z"
+  }
+]
+```
+```
+POST /notes/:id/replay
+```
+Description: Replay a note by ID.
+
+Access: Private
+
+Params:
+
+id → Note identifier
+
+Response Example:
+```
+{
+  "message": "Replay triggered",
+  "noteId": "note123"
+}
+```

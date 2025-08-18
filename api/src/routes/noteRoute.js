@@ -1,23 +1,16 @@
-import express from 'express';
-const { createNote, listNotes, replayNote } = require('../controllers/notes_controller.js');
-const { createNoteSchema } = require('../validators/noteSchema');
+import { Router } from "express";
+import { createNote, listNotes, replayNote, healthCheck } from "../controllers/notesController";
+import { authMiddleware } from "../middleware/auth";
+import { apiLimiter } from "../middleware/rateLimiter";
 
-const router = express.Router();
+const router = Router();
 
-// Validation middleware (pattern)
-function validate(schema) {
-  return (req, res, next) => {
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: 'Validation failed', details: result.error.issues });
-    }
-    req.validated = result.data;
-    next();
-  };
-}
+router.get("/health", healthCheck);
 
-router.post('/', validate(createNoteSchema), createNote);
-router.get('/', listNotes);
-router.post('/:id/replay', replayNote);
+router.use(authMiddleware, apiLimiter); 
 
-module.exports = router;
+router.post("/notes", createNote);
+router.get("/notes", listNotes);
+router.post("/notes/:id/replay", replayNote);
+
+export default router;
