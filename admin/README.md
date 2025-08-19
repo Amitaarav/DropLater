@@ -1,17 +1,17 @@
-Webhook Scheduler – Admin Frontend
+# Webhook Scheduler – Admin Frontend
 
 This is the Admin Frontend for managing scheduled webhook deliveries.
 It provides a simple UI for:
 
-Creating new scheduled notes (with webhook delivery).
+- Creating new scheduled notes (with webhook delivery).
 
-Viewing, filtering, and paginating existing notes.
+- Viewing, filtering, and paginating existing notes.
 
-Replaying failed or dead notes.
+- Replaying failed or dead notes.
 
 The app is built with React, Framer Motion, React Hook Form, Axios, and Day.js, styled with TailwindCSS.
 
-📂 Project Structure
+## Project Structure
 ```
 admin/
 │── public/                 # Static assets
