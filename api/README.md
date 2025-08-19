@@ -117,6 +117,46 @@ releaseAt (ascending) → Worker can quickly find due notes to enqueue.
 
 status → Admin UI can list/filter notes efficiently.
 
+## Utilities
+
+### 1. Logger (`logger.js`)
+
+We use [Pino](https://github.com/pinojs/pino) as the logging library for this project.  
+- In **development mode**, logs are pretty-printed using `pino-pretty` with colors and timestamps.  
+- In **production mode**, logs remain in structured JSON format for better performance and log aggregation.  
+
+**Usage Example:**
+```js
+
+```
+import logger from './logger.js';
+
+logger.info('Application started');
+logger.error({ err }, 'Something went wrong');
+
+```
+Environment variables:
+
+LOG_LEVEL → sets the log level (info, debug, error, etc.). Default: info
+
+NODE_ENV=development → enables pretty-print logs
+
+2. Idempotency Utility (idempotency.js)
+This utility ensures idempotency of API requests or background jobs.
+It generates a deterministic idempotency key using SHA-256 hash of noteId and releaseAt.
+
+Usage Example:
+
+js
+Copy
+Edit
+import { generateIdempotencyKey } from './idempotency.js';
+
+const key = generateIdempotencyKey('note123', '2025-08-19T10:00:00Z');
+console.log(key);
+// => "a3c5f4d2e1..."
+This prevents duplicate records from being created when the same request is retried.
+
 ### API Reference
 Public Routes
 ```
