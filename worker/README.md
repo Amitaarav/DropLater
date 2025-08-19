@@ -44,6 +44,7 @@ WORKER_CONCURRENCY=5         # Number of concurrent jobs
 RETRY_LIMIT=5                # Max retries before marking as dead
 BACKOFF_DELAY=30000          # Delay (ms) for exponential backoff
 
+
 MONGO_URL=mongodb://mongo:27017/app
 REDIS_HOST=redis
 REDIS_PORT=6379
@@ -61,31 +62,27 @@ Example Log Output
 
 ```
 worker/
-├── src/
-│   ├── config/
-│   │   ├── database.js
-│   │   └── redis.js
+│── src/
+│   ├── config/              # Configuration files
+│   │   ├── database.js      # MongoDB connection
+│   │   └── redis.js         # Redis connection
 │   │
-│   ├── models/
-│   │   └── (your model files here)
+│   ├── models/              # Database models
+│   │   └── Note.js          # Note schema (status, attempts, releaseAt, etc.)
 │   │
-│   ├── services/
-│   │   ├── deliveryServices.js
-│   │   └── pollingService.js
+│   ├── services/            # Core services
+│   │   ├── deliveryService.js   # Handles webhook delivery + retries
+│   │   └── pollingService.js    # Polls DB for due notes and enqueues them
 │   │
-│   ├── utils/
-│   │   ├── idempotency.js
-│   │   └── logger.js
+│   ├── utils/               # Utility functions
+│   │   ├── worker.js        # Worker bootstrap
+│   │   └── logger.js        # Centralized logger
 │   │
-│   └── worker.js   <-- main entry point
+│   └── index.js (entry)     # Starts worker + poller
 │
-├── .dockerignore
-├── .env
-├── .env.example
-├── .gitignore
-├── Dockerfile
-├── package-lock.json
-├── package.json
-└── README.md
+├── .env.example             # Example environment variables
+├── Dockerfile               # Container build file
+├── package.json             # Dependencies & scripts
+└── README.md                # Project guide
 
  ```
