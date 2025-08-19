@@ -5,7 +5,7 @@ import { getRedisClient } from '../config/redis.js';
 import { generateIdempotencyKey } from '../utils/idempotency.js';
 import logger from '../utils/logger.js';
 
-const POLLING_INTERVAL = 5000; // 5 seconds
+const POLLING_INTERVAL = 5000;
 let noteQueue = null;
 let pollingTimer = null;
 
