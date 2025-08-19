@@ -10,9 +10,6 @@ RUN npm ci --omit=dev
 # Copy source files
 COPY src ./src
 
-# Ensure proper permissions if the app writes files
-RUN chown -R node:node /usr/src/app
-
 # Use built-in non-root user
 USER node
 
