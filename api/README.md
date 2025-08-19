@@ -1,23 +1,23 @@
-#API Service
+# API Service
 
 This folder contains the API service for the project.
 It provides REST endpoints for clients and communicates with other services (worker, sink, and admin) via queues and databases.
 
 ## Tech Stack
 
-Node.js with Express
+- Node.js with Express
 
-MongoDB (for persistence)
+- MongoDB (for persistence)
 
-Redis (for caching & queues)
+- Redis (for caching & queues)
 
-BullMQ (for job queues)
+- BullMQ (for job queues)
 
-Zod (for validation)
+- Zod (for validation)
 
-Pino (for logging)
+- Pino (for logging)
 
-Docker (for containerization)
+- Docker (for containerization)
 
 ### Project Setup Guide
 1. Initialize the Project
@@ -440,3 +440,54 @@ Logger (Pino) → structured logging
 
 Queue Service → background note delivery
 
+## Database Seeding (`seed.js`)
+
+This script populates MongoDB with **sample notes** for testing and development.  
+It clears existing notes and inserts a predefined set of example notes with different statuses.
+
+---
+
+### Sample Notes Inserted
+1. **Welcome Message** → pending, scheduled 2 minutes in the future.  
+2. **Daily Reminder** → pending, scheduled 1 hour in the future.  
+3. **Already Delivered** → delivered yesterday, with a successful attempt logged.  
+4. **Failed Delivery** → failed 2 hours ago, with an error attempt.  
+
+---
+
+### How to Run
+From the project root, run:
+
+```bash
+```
+node seed.js
+```
+or if using npm scripts:
+
+bash
+Copy
+Edit
+```
+npm run seed
+```
+(You can add "seed": "node ./src/seed/seed.js" to your package.json scripts section.)
+
+Environment Variables
+The script uses the same MongoDB connection string as the API service.
+
+Default:
+
+bash
+Copy
+Edit
+```
+mongodb://localhost:27017/webhook_scheduler
+``
+Or override via:
+
+bash
+Copy
+Edit
+```
+MONGODB_URI=mongodb://<host>:<port>/<dbname> node seed.js
+```
