@@ -1,68 +1,60 @@
 import express from 'express';
-import dotenv from "dotenv"
-import pino from 'pino';
-import { z } from 'zod';
-import dayjs from 'dayjs';
+import cors from 'cors';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import logger from './utils/logger.js';
+import { connectDB } from './config/database.js';
+import { connectRedis } from './config/redis.js';
+import authMiddleware from './middleware/auth.js';
+import rateLimitMiddleware from './middleware/rateLimit.js';
+import errorHandler from './middleware/errorHandler.js';
+import notesRoutes from './routes/notes.js';
+import healthRoutes from './routes/health.js';
 
-import { connectMongo } from './db';
-import Event from './models/event';
-import { createQueue } from './queue';
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.API_PORT || 3000);
-const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-(async () => {
-  await connectMongo();
-  const app = express();
-  const queue = createQueue();
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-  app.use(express.json());
+// Rate limiting
+app.use(rateLimitMiddleware);
 
-  // Serve admin/static (optional)
-  app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+// Serve admin UI from public folder
+app.use('/admin', express.static(path.join(__dirname, '../public')));
 
-  app.get('/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      time: dayjs().toISOString()
+// Routes
+app.use('/health', healthRoutes);
+app.use('/api/notes', authMiddleware, notesRoutes);
+
+// Error handling
+app.use(errorHandler);
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// Start server
+async function startServer() {
+  try {
+    await connectDB();
+    await connectRedis();
+    
+    app.listen(PORT, () => {
+      logger.info(`API server running on port ${PORT}`);
     });
-  });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
 
-  // Validate and enqueue an event
-  const EventSchema = z.object({
-    type: z.string().min(1),
-    payload: z.record(z.any())
-  });
+startServer();
 
-  app.post('/events', async (req, res) => {
-    const parse = EventSchema.safeParse(req.body);
-
-    if (!parse.success) {
-      return res.status(400).json({ error: parse.error.flatten() });
-    }
-
-    const { type, payload } = parse.data;
-
-    // store in mongo
-    const doc = await Event.create({ type, payload });
-
-    // push job to worker
-    await queue.add('deliver', { id: String(doc._id), type, payload }, { removeOnComplete: true, attempts: 3 });
-
-    logger.info({ id: doc._id, type }, 'Event stored and enqueued');
-    res.status(202).json({ id: doc._id, status: 'queued' });
-
-  });
-
-  app.listen(PORT, () => {
-    logger.info(`API listening on :${PORT}`);
-  });
-
-  process.on('SIGINT', async () => {
-    logger.info('API shutting down...');
-    await queue.close();
-    process.exit(0);
-  });
-})();
+export default app;

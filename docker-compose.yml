@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-droplater_db}
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api
+    env_file: .env
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ./api:/usr/src/app:cached  # 'cached' improves performance on Mac/Windows
+      - /usr/src/app/node_modules   # prevent overwriting node_modules
+    command: ["npm", "run", "start"]
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker
+    env_file: .env
+    depends_on:
+      - redis
+      - mongo
+      - sink
+    volumes:
+      - ./worker:/usr/src/app:cached
+      - /usr/src/app/node_modules
+    command: ["npm", "run", "start"]
+
+  sink:
+    build:
+      context: ./sink
+      dockerfile: Dockerfile
+    container_name: sink
+    env_file: .env
+    ports:
+      - "${SINK_PORT:-4000}:4000"
+    volumes:
+      - ./sink:/usr/src/app:cached
+      - /usr/src/app/node_modules
+    command: ["npm", "run", "start"]
+
+volumes:
+  mongo_data:

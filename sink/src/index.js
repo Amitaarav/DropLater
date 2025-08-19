@@ -5,7 +5,7 @@ const { z } = require('zod');
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 const PORT = Number(process.env.SINK_PORT || 4000);
 
-const app = express();
+export const app = express();
 app.use(express.json());
 
 // Basic validation of incoming event
@@ -28,5 +28,3 @@ app.post('/webhook', (req, res) => {
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => logger.info(`Sink listening on :${PORT}`));
-
-module.exports = app;

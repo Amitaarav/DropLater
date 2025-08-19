@@ -111,11 +111,81 @@ QUEUE_EVENTS=events
 
 See root README.md for shared environment variables across services.
 
-\### Indexing Strategy (Database)
+### Indexing Strategy (Database)
 
 releaseAt (ascending) → Worker can quickly find due notes to enqueue.
 
 status → Admin UI can list/filter notes efficiently.
+## Notes Model (`models/Note.js`)
+
+This file defines the **Mongoose schema and model** for Notes, which are the core entities in the system.  
+Each note represents a scheduled message that will be delivered to a webhook endpoint at a specified time.
+
+---
+
+### Schema Fields
+
+- **title** *(String, required, max 200)*  
+  Short title of the note.  
+
+- **body** *(String, required, max 5000)*  
+  The main content of the note.  
+
+- **releaseAt** *(Date, required, indexed)*  
+  Scheduled timestamp when the note should be delivered.  
+
+- **webhookUrl** *(String, required, regex `^https?://`)*  
+  The target webhook endpoint where the note will be delivered.  
+
+- **status** *(String, enum: `pending | delivered | failed | dead`, default: `pending`, indexed)*  
+  Current delivery status of the note.  
+
+- **attempts** *(Array of objects)*  
+  Stores the history of delivery attempts, each containing:  
+  - `at` → timestamp of attempt  
+  - `statusCode` → HTTP response code  
+  - `ok` → whether the attempt succeeded (`true`/`false`)  
+  - `error` → error message if the attempt failed  
+
+- **deliveredAt** *(Date, nullable)*  
+  Timestamp when the note was successfully delivered (if applicable).  
+
+- **timestamps** *(createdAt, updatedAt)*  
+  Automatically managed by Mongoose.  
+
+---
+
+### Indexing Strategy
+
+- **`releaseAt + status`** → Optimizes worker queries for fetching due notes.  
+- **`status + createdAt`** → Efficient listing/filtering of notes in admin & API.  
+
+---
+
+### Example Document
+```json
+
+```
+{
+  "_id": "64e8f9b1c29f5b1c3d2a9c01",
+  "title": "Project Deadline",
+  "body": "Reminder: Submit report by 5 PM",
+  "releaseAt": "2025-08-20T10:00:00.000Z",
+  "webhookUrl": "https://example.com/webhook",
+  "status": "pending",
+  "attempts": [
+    {
+      "at": "2025-08-20T10:01:00.000Z",
+      "statusCode": 500,
+      "ok": false,
+      "error": "Internal Server Error"
+    }
+  ],
+  "deliveredAt": null,
+  "createdAt": "2025-08-19T09:00:00.000Z",
+  "updatedAt": "2025-08-19T09:10:00.000Z"
+}
+```
 
 ## Utilities
 
@@ -150,11 +220,13 @@ Usage Example:
 js
 Copy
 Edit
+```
 import { generateIdempotencyKey } from './idempotency.js';
 
 const key = generateIdempotencyKey('note123', '2025-08-19T10:00:00Z');
 console.log(key);
 // => "a3c5f4d2e1..."
+```
 This prevents duplicate records from being created when the same request is retried.
 
 ### API Reference
@@ -219,3 +291,152 @@ Response Example:
   "noteId": "note123"
 }
 ```
+
+## Notes Controller (`controllers/noteController.js`)
+
+This file defines the main controller logic for managing **Notes** in the system.  
+It handles creating, listing, replaying, and retrieving notes, with validation, logging, and queue integration.
+
+---
+
+### 1. Create Note (`createNote`)
+Creates a new note and enqueues it for processing.  
+- Validates input using **Zod** schema (`title`, `body`, `releaseAt`, `webhookUrl`).  
+- Converts `releaseAt` to a Date object using **Day.js**.  
+- Saves the note to MongoDB.  
+- Pushes the note to the **queue service** for background delivery.  
+- Logs note creation event.
+
+**Request Example:**
+```http
+POST /notes
+Content-Type: application/json
+```
+{
+  "title": "Reminder",
+  "body": "Meeting with team",
+  "releaseAt": "2025-08-20T10:00:00Z",
+  "webhookUrl": "https://example.com/webhook"
+}
+```
+Response Example:
+
+json
+Copy
+Edit
+```
+{
+  "id": "64e8f9b1c29f5b1c3d2a9c01",
+  "message": "Note created successfully"
+}
+```
+2. List Notes (listNotes)
+Fetches a paginated list of notes, optionally filtered by status.
+
+Query params:
+
+status → one of pending | delivered | failed | dead
+
+page → page number (default: 1)
+
+Returns note metadata (title, status, release time, delivery attempts).
+
+Supports pagination with hasNext / hasPrev.
+
+Request Example:
+
+http
+Copy
+Edit
+GET /notes?status=pending&page=1
+Response Example:
+
+json
+Copy
+Edit
+```
+{
+  "notes": [
+    {
+      "id": "64e8f9b1c29f5b1c3d2a9c01",
+      "title": "Reminder",
+      "status": "pending",
+      "releaseAt": "2025-08-20T10:00:00.000Z",
+      "deliveredAt": null,
+      "lastAttempt": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "totalPages": 3,
+    "total": 45,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+3. Replay Note (replayNote)
+Re-enqueues a note for delivery if it failed previously.
+
+Rejects replaying if the note is already delivered.
+
+Resets status to pending and enqueues again.
+
+Logs replay event.
+
+Request Example:
+
+http
+Copy
+Edit
+POST /notes/:id/replay
+Response Example:
+
+json
+Copy
+Edit
+```
+{
+  "message": "Note queued for replay",
+  "id": "64e8f9b1c29f5b1c3d2a9c01",
+  "status": "pending"
+}
+```
+4. Get Note (getNote)
+Fetches the full details of a note by its ID.
+
+Request Example:
+
+h
+Copy
+Edit
+GET /notes/:id
+Response Example:
+
+json
+
+```
+{
+  "id": "64e8f9b1c29f5b1c3d2a9c01",
+  "title": "Reminder",
+  "body": "Meeting with team",
+  "status": "pending",
+  "releaseAt": "2025-08-20T10:00:00.000Z",
+  "webhookUrl": "https://example.com/webhook",
+  "deliveredAt": null,
+  "attempts": [],
+  "createdAt": "2025-08-19T09:00:00.000Z",
+  "updatedAt": "2025-08-19T09:00:00.000Z"
+}
+```
+Dependencies Used
+Zod → input validation
+
+Day.js → date/time parsing
+
+Mongoose (Note model) → MongoDB persistence
+
+Logger (Pino) → structured logging
+
+Queue Service → background note delivery
+
